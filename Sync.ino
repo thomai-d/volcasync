@@ -2,8 +2,8 @@
 #include <LiquidCrystal_PCF8574.h>
 #include <TimerOne.h>
 
+#include "Configuration.h"
 #include "Rotary.h"
-
 #include "Display.h"
 
 #define PIN_ROTARY_A	2			// Use interrupt pins!!
@@ -11,6 +11,8 @@
 #define PIN_ROTARY_X	7			// Rotary button
 #define PIN_SELECT_A	8			// Modifier for channel A
 
+#define PIN_CH_0		22
+#define PIN_CH_1		23
 
 // Hardware stuff.
 uint8_t rotary_state;
@@ -18,26 +20,29 @@ volatile uint8_t selectedChannel;
 bool lastRotWasDown = false;
 
 // BL stuff.
-#define BPM_TO_TIMER_US		117187    // :)
 volatile int bpm = 125;
 volatile bool bpmChanged = true;
-volatile bool skipT2 = false;
 
-uint8_t i = 0;
+uint8_t step = 0;
 
-uint8_t t1 = 127;
-uint8_t t2 = 127;
+#define BPM_TO_TIMER_US		117187    // :)
+typedef struct Channel
+{
+	uint8_t		trigger		= 127;
+	uint8_t		setValue	= 127;
+	bool		skipOnce	= false;
+	uint8_t		pin;
+};
 
-const int adjustStep = 15;
-
-
-uint8_t newT2 = 127;
-bool t2Changed = false;
+volatile Channel channels[CHANNEL_COUNT];
 
 void setup()
 {
-	pinMode(22, OUTPUT);
-	pinMode(23, OUTPUT);
+	channels[0].pin = PIN_CH_0;
+	channels[1].pin = PIN_CH_1;
+
+	pinMode(PIN_CH_0, OUTPUT);
+	pinMode(PIN_CH_1, OUTPUT);
 
 	pinMode(PIN_ROTARY_A, INPUT_PULLUP);
 	pinMode(PIN_ROTARY_B, INPUT_PULLUP);
@@ -64,50 +69,49 @@ void on_buttonsChanged_ISR()
 				  : rotary_state == DIR_CCW ? -1
 				  : 0;
 
-	if (selectedChannel == 1)
+	if (selectedChannel > 0)
 	{
-		newT2 += offset;
-		t2Changed = true;
+		channels[selectedChannel-1].setValue = checked_add(channels[selectedChannel-1].setValue, offset * DELAY_STEPS_MOD, 5, 250);
 	}
 	else
 	{
-		bpm += offset;
+		bpm = checked_add(bpm, offset, 60, 300);
 		bpmChanged = true;
 	}
 }
 
 void onClock()
 {
-	bool triggerCh0 = i == t1;
-	bool triggerCh1 = i == t2;
-
-	if (skipT2 && triggerCh1)
+	for (uint8_t i = 0; i < CHANNEL_COUNT; i++)
 	{
-		triggerCh1 = false;
-		skipT2 = false;
+		bool trigger = channels[i].trigger == step;
+		if (trigger && channels[i].skipOnce)
+		{
+			channels[i].skipOnce = false;
+			trigger = false;
+		}
+
+		digitalWrite(channels[i].pin, trigger);
+
+		if (step == 0 && channels[i].setValue != channels[i].trigger)
+		{
+			if (channels[i].setValue > channels[i].trigger + DELAY_APPROX_STEPS)
+				channels[i].trigger += DELAY_APPROX_STEPS;
+			else if (channels[i].setValue < channels[i].trigger - DELAY_APPROX_STEPS)
+				channels[i].trigger -= DELAY_APPROX_STEPS;
+			else
+				channels[i].trigger = channels[i].setValue;
+		}
 	}
 
-	digitalWrite(22, triggerCh0);
-	digitalWrite(23, triggerCh1);
-
-	if (i == 0)
-	{
-		if (newT2 > t2 + adjustStep)
-			t2 += adjustStep;
-		else if (newT2 < t2 - adjustStep)
-			t2 -= adjustStep;
-		else
-			t2 = newT2;
-	}
-
-	i++;
+	step++;
 }
 
 void loop()
 {
 	delay(10);
 
-	checkSelectedChannel();
+	updateSelectedChannel();
 
 	checkRotaryPressed();
 
@@ -124,13 +128,16 @@ void checkRotaryPressed()
 	bool isDown = !digitalRead(PIN_ROTARY_X);
 	if (isDown && !lastRotWasDown)
 	{
-		skipT2 = true;
+		if (selectedChannel > 0)
+		{
+			channels[selectedChannel - 1].skipOnce = true;
+		}
 	}
 
 	lastRotWasDown = isDown;
 }
 
-void checkSelectedChannel()
+void updateSelectedChannel()
 {
 	uint8_t newChSel = 0;
 	if (!digitalRead(PIN_SELECT_A))
@@ -142,5 +149,16 @@ void checkSelectedChannel()
 	if (selectedChannel == 0)
 		LCD.clearSecondRow();
 	else
-		LCD.drawChannelValue(selectedChannel, t2);
+		LCD.drawChannelValue(selectedChannel, channels[selectedChannel-1].setValue);
+}
+
+int checked_add(int value, int8_t increment, int min, int max)
+{
+	int newValue = value + increment;
+	if (newValue > max)
+		return max;
+	else if (newValue < min)
+		return min;
+
+	return newValue;
 }
