@@ -6,6 +6,7 @@
 #include "Rotary.h"
 #include "Display.h"
 
+#define PIN_STARTSTOP	6			// Start/Stop-Button
 #define PIN_ROTARY_A	2			// Use interrupt pins!!
 #define PIN_ROTARY_B	3			// Use interrupt pins!!
 #define PIN_ROTARY_X	7			// Rotary button
@@ -24,8 +25,10 @@ volatile int bpm = 125;
 volatile bool bpmChanged = true;
 
 uint8_t step = 0;
+bool isRunning = false;				// Start/Stop.
+bool lastStartStopWasDown = false;
 
-#define BPM_TO_TIMER_US		117187    // :)
+#define BPM_TO_TIMER_US		117187  // :)
 typedef struct Channel
 {
 	uint8_t		trigger		= 127;
@@ -48,6 +51,7 @@ void setup()
 	pinMode(PIN_ROTARY_B, INPUT_PULLUP);
 	pinMode(PIN_ROTARY_X, INPUT_PULLUP);
 	pinMode(PIN_SELECT_A, INPUT_PULLUP);
+	pinMode(PIN_STARTSTOP, INPUT_PULLUP);
 
 	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_A), on_buttonsChanged_ISR, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_B), on_buttonsChanged_ISR, CHANGE);
@@ -55,6 +59,7 @@ void setup()
 	LCD.init();
 
 	Timer1.attachInterrupt(onClock);
+	Timer1.stop();
 	Serial.begin(9600);
 
 }
@@ -84,15 +89,7 @@ void onClock()
 {
 	for (uint8_t i = 0; i < CHANNEL_COUNT; i++)
 	{
-		bool trigger = channels[i].trigger == step;
-		if (trigger && channels[i].skipOnce)
-		{
-			channels[i].skipOnce = false;
-			trigger = false;
-		}
-
-		digitalWrite(channels[i].pin, trigger);
-
+		// Move setpoints toward trigger step.
 		if (step == 0 && channels[i].setValue != channels[i].trigger)
 		{
 			if (channels[i].setValue > channels[i].trigger + DELAY_APPROX_STEPS)
@@ -102,6 +99,16 @@ void onClock()
 			else
 				channels[i].trigger = channels[i].setValue;
 		}
+
+		// Trigger pulses.
+		bool trigger = channels[i].trigger == step;
+		if (trigger && channels[i].skipOnce)
+		{
+			channels[i].skipOnce = false;
+			trigger = false;
+		}
+
+		digitalWrite(channels[i].pin, trigger);
 	}
 
 	step++;
@@ -115,12 +122,30 @@ void loop()
 
 	checkRotaryPressed();
 
-	if (bpmChanged)
+	checkStartStop();
+
+	if (bpmChanged && isRunning)
 	{
 		bpmChanged = false;
 		Timer1.initialize(BPM_TO_TIMER_US / bpm);
 		LCD.setBpm(bpm);
 	}
+}
+
+void checkStartStop()
+{
+	bool isPressed = !digitalRead(PIN_STARTSTOP);
+
+	if (isPressed && !lastStartStopWasDown)
+	{
+		isRunning = !isRunning;
+		if (isRunning)
+			Timer1.restart();
+		else
+			Timer1.stop();
+	}
+
+	lastStartStopWasDown = isPressed;
 }
 
 void checkRotaryPressed()

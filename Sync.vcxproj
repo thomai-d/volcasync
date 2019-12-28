@@ -112,8 +112,13 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Configuration.h" />
+    <ClInclude Include="Display.h" />
     <ClInclude Include="Rotary.h" />
     <ClInclude Include="__vm\.Sync.vsarduino.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Display.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
