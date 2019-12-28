@@ -11,6 +11,9 @@ public:
 
 	void setBpm(int bpm);
 
+	void drawChannelValue(uint8_t channel, int value);
+	void clearSecondRow();
+
 private:
 
 	void drawSkeleton();
