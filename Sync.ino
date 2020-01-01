@@ -7,10 +7,13 @@
 #include "Display.h"
 
 #define PIN_STARTSTOP	17			// Start/Stop-Button
+#define PIN_SELECT_A	16			// Modifier for channel A
+#define PIN_GPIO15		15			// unused
+#define PIN_GPIO14		14			// unused
 #define PIN_ROTARY_A	2			// Use interrupt pins!!
 #define PIN_ROTARY_B	3			// Use interrupt pins!!
 #define PIN_ROTARY_X	4			// Rotary button
-#define PIN_SELECT_A	16			// Modifier for channel A
+#define PIN_LED			11			// LED
 
 #define PIN_CH_0		5	
 #define PIN_CH_1		6
@@ -27,6 +30,8 @@ volatile int bpm = 125;
 volatile bool bpmChanged = true;
 
 uint8_t step = 0;
+uint8_t beat = 0; // 8th beat count
+
 bool isRunning = false;				// Start/Stop.
 bool lastStartStopWasDown = false;
 
@@ -51,6 +56,9 @@ void setup()
 	for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
 		pinMode(channels[n].pin, OUTPUT);
 
+	pinMode(PIN_LED, OUTPUT);
+	analogWrite(PIN_LED, 0);
+
 	pinMode(PIN_ROTARY_A, INPUT_PULLUP);
 	pinMode(PIN_ROTARY_B, INPUT_PULLUP);
 	pinMode(PIN_ROTARY_X, INPUT_PULLUP);
@@ -62,10 +70,9 @@ void setup()
 
 	LCD.init();
 
-	Timer1.attachInterrupt(onClock);
 	Timer1.stop();
+	Timer1.attachInterrupt(onClock);
 	Serial.begin(9600);
-
 }
 
 void on_buttonsChanged_ISR()
@@ -91,6 +98,9 @@ void on_buttonsChanged_ISR()
 
 void onClock()
 {
+	if (!isRunning)
+		return;
+
 	for (uint8_t i = 0; i < CHANNEL_COUNT; i++)
 	{
 		// Move setpoints toward trigger step.
@@ -115,7 +125,15 @@ void onClock()
 		digitalWrite(channels[i].pin, trigger);
 	}
 
+	if (beat % 2 == 0 && step < 128)
+		analogWrite(PIN_LED, 255 - step * 2);
+	else
+		analogWrite(PIN_LED, 0);
+
 	step++;
+
+	if (step == 0)
+		beat++;
 }
 
 void loop()
