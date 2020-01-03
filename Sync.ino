@@ -1,11 +1,13 @@
 #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
 #include <TimerOne.h>
+#include <eeprom.h>
 
 #include "Configuration.h"
 #include "Abstractions/Rotary.h"
 #include "Abstractions/Display.h"
 #include "Abstractions/Helpers.h"
+#include "Abstractions/Storage.h"
 
 #define PIN_STARTSTOP	17			// Start/Stop-Button
 #define PIN_SELECT_A	16			// Modifier for channel A
@@ -52,13 +54,21 @@ volatile Channel channels[CHANNEL_COUNT];
 
 void setup()
 {
+	LCD.init();
+
 	channels[0].pin = PIN_CH_0;
 	channels[1].pin = PIN_CH_1;
 	channels[2].pin = PIN_CH_2;
 	channels[3].pin = PIN_CH_3;
 
+	initializeStorage();
+
 	for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
+	{
 		pinMode(channels[n].pin, OUTPUT);
+		channels[n].trigger = storage_getTrigger(n);
+		channels[n].setValue = channels[n].trigger;
+	}
 
 	pinMode(PIN_LED, OUTPUT);
 	analogWrite(PIN_LED, 0);
@@ -72,11 +82,11 @@ void setup()
 	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_A), on_buttonsChanged_ISR, CHANGE);
 	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_B), on_buttonsChanged_ISR, CHANGE);
 
-	LCD.init();
-
 	Timer1.stop();
 	Timer1.attachInterrupt(on_clock_ISR);
-	Serial.begin(9600);
+
+	delay(2000);
+	LCD.go();
 }
 
 void loop()
@@ -111,6 +121,12 @@ void redraw()
 		else
 		{
 			LCD.setStatus("Stopped");
+
+			// Save on stop.
+			storage_setBpm(bpm);
+			for (uint8_t c = 0; c < CHANNEL_COUNT; c++)
+				storage_setChannelTrigger(c, channels[c].trigger);
+
 			beat = 0;
 			step = 0;
 		}
@@ -243,3 +259,14 @@ void on_clock_ISR()
 	}
 }
 
+void initializeStorage()
+{
+	if (!storage_isInitialized())
+	{
+		for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
+			storage_setChannelTrigger(n, 127);
+
+		storage_setBpm(bpm);
+		storage_init();
+	}
+}

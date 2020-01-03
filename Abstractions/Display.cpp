@@ -22,8 +22,16 @@ void Display::init()
 {
 	lcd.begin(16, 2);
 	lcd.init();
+	lcd.setCursor(0, 0);
+	lcd.print("HALO I BIMS");
+	lcd.setCursor(0, 1);
+	lcd.print(":-) :-) :-)");
 	lcd.setBacklight(1);
-	drawSkeleton();
+}
+
+void Display::go()
+{
+	lcd.init();
 }
 
 void Display::setStatus(const char* status)
@@ -82,11 +90,6 @@ void Display::clearSecondRow()
 }
 
 /* Helper methods */
-
-void Display::drawSkeleton()
-{
-	lcd.print("BPM: ");
-}
 
 void Display::print_uint8(uint8_t value)
 {

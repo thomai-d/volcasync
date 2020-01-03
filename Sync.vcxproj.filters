@@ -33,6 +33,9 @@
     <ClInclude Include="Abstractions\Helpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Abstractions\Storage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Abstractions\Display.cpp">

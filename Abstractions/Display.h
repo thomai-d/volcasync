@@ -5,7 +5,8 @@
 class Display
 {
 public:
-	void init();
+	void init();		/* Splash */
+	void go();			/* Remove splash */
 
 	void setStatus(const char* status);
 	void setBeat(uint8_t beat, uint8_t quarter);
@@ -17,7 +18,6 @@ public:
 
 private:
 
-	void drawSkeleton();
 	void print_uint8(uint8_t value);
 
 	LiquidCrystal_PCF8574  lcd = LiquidCrystal_PCF8574(0x27);
