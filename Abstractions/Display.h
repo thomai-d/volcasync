@@ -8,6 +8,7 @@ public:
 	void init();
 
 	void setStatus(const char* status);
+	void setBeat(uint8_t beat, uint8_t quarter);
 
 	void setBpm(int bpm);
 

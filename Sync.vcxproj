@@ -112,13 +112,14 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Abstractions\Helpers.h" />
     <ClInclude Include="Configuration.h" />
-    <ClInclude Include="Display.h" />
-    <ClInclude Include="Rotary.h" />
+    <ClInclude Include="Abstractions\Display.h" />
+    <ClInclude Include="Abstractions\Rotary.h" />
     <ClInclude Include="__vm\.Sync.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Display.cpp" />
+    <ClCompile Include="Abstractions\Display.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

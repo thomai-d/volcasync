@@ -34,7 +34,8 @@ uint8_t step = 0;
 uint8_t beat = 0; // 8th beat count
 
 bool isRunning = false;				// Start/Stop.
-bool isRedrawRequired = true;
+bool is1stRowRedrawRequired = true;
+volatile bool is2ndRowRedrawRequired = true;
 bool lastStartStopWasDown = false;
 bool lastSelectAWasDown = false;
 
@@ -72,7 +73,6 @@ void setup()
 	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_B), on_buttonsChanged_ISR, CHANGE);
 
 	LCD.init();
-	LCD.setStatus("Stopped");
 
 	Timer1.stop();
 	Timer1.attachInterrupt(on_clock_ISR);
@@ -100,13 +100,32 @@ void loop()
 
 void redraw()
 {
-	if (!isRedrawRequired)
-		return;
+	if (is1stRowRedrawRequired)
+	{
+		if (isRunning)
+		{
+			uint8_t quartOutOfFour = (beat / 2) % 4;
+			uint8_t beatOutOfFour = (beat / 8) % 4;
+			LCD.setBeat(beatOutOfFour, quartOutOfFour);
+		}
+		else
+		{
+			LCD.setStatus("Stopped");
+			beat = 0;
+			step = 0;
+		}
 
-	if (selectedChannel == 0)
-		LCD.setBpm(bpm);
-	else
-		LCD.drawChannelValue(selectedChannel, channels[selectedChannel-1].setValue);
+		is1stRowRedrawRequired = false;
+	}
+
+	if (is2ndRowRedrawRequired)
+	{
+		if (selectedChannel == 0)
+			LCD.setBpm(bpm);
+		else
+			LCD.drawChannelValue(selectedChannel, channels[selectedChannel - 1].setValue);
+		is2ndRowRedrawRequired = false;
+	}
 }
 
 void checkStartStop()
@@ -117,15 +136,11 @@ void checkStartStop()
 	{
 		isRunning = !isRunning;
 		if (isRunning)
-		{
-			LCD.setStatus("Running");
 			Timer1.restart();
-		}
 		else
-		{
-			LCD.setStatus("Stopped");
 			Timer1.stop();
-		}
+
+		is1stRowRedrawRequired = true;
 	}
 
 	lastStartStopWasDown = isPressed;
@@ -155,7 +170,7 @@ void checkSelectButton()
 	}
 	lastSelectAWasDown = isDown;
 	
-	isRedrawRequired = newSel == selectedChannel;
+	is2ndRowRedrawRequired = newSel == selectedChannel;
 	selectedChannel = newSel;
 }
 
@@ -182,7 +197,7 @@ void on_buttonsChanged_ISR()
 		bpmChanged = true;
 	}
 
-	isRedrawRequired = true;
+	is2ndRowRedrawRequired = true;
 }
 
 /* Is invoked 256 times within a 1/8 beat. */
@@ -222,6 +237,9 @@ void on_clock_ISR()
 
 	step++;
 	if (step == 0)
+	{
 		beat++;
+		is1stRowRedrawRequired = true;
+	}
 }
 

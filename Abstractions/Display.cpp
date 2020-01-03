@@ -34,9 +34,21 @@ void Display::setStatus(const char* status)
 	lcd.print(status);
 
 	for (uint8_t n = 0; n < this->status_len - len; n++)
-		lcd.print("x");
+		lcd.print(" ");
 
 	this->status_len = len;
+}
+
+void Display::setBeat(uint8_t beat, uint8_t quarter)
+{
+	char buf[16] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
+	buf[beat] = 'A' + beat;
+
+	buf[6 + quarter * 2] = '1' + quarter;
+
+	lcd.setCursor(0, 0);
+	lcd.print(buf);
+	this->status_len = 16;
 }
 
 void Display::setBpm(int bpm)
