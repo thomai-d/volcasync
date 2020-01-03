@@ -3,8 +3,9 @@
 #include <TimerOne.h>
 
 #include "Configuration.h"
-#include "Rotary.h"
-#include "Display.h"
+#include "Abstractions/Rotary.h"
+#include "Abstractions/Display.h"
+#include "Abstractions/Helpers.h"
 
 #define PIN_STARTSTOP	17			// Start/Stop-Button
 #define PIN_SELECT_A	16			// Modifier for channel A
@@ -33,7 +34,9 @@ uint8_t step = 0;
 uint8_t beat = 0; // 8th beat count
 
 bool isRunning = false;				// Start/Stop.
+bool isRedrawRequired = true;
 bool lastStartStopWasDown = false;
+bool lastSelectAWasDown = false;
 
 #define BPM_TO_TIMER_US		117187  // :)
 typedef struct Channel
@@ -69,12 +72,96 @@ void setup()
 	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_B), on_buttonsChanged_ISR, CHANGE);
 
 	LCD.init();
+	LCD.setStatus("Stopped");
 
 	Timer1.stop();
-	Timer1.attachInterrupt(onClock);
+	Timer1.attachInterrupt(on_clock_ISR);
 	Serial.begin(9600);
 }
 
+void loop()
+{
+	delay(10);
+
+	checkSelectButton();
+
+	checkRotaryPressed();
+
+	checkStartStop();
+
+	redraw();
+
+	if (bpmChanged && isRunning)
+	{
+		bpmChanged = false;
+		Timer1.initialize(BPM_TO_TIMER_US / bpm);
+	}
+}
+
+void redraw()
+{
+	if (!isRedrawRequired)
+		return;
+
+	if (selectedChannel == 0)
+		LCD.setBpm(bpm);
+	else
+		LCD.drawChannelValue(selectedChannel, channels[selectedChannel-1].setValue);
+}
+
+void checkStartStop()
+{
+	bool isPressed = !digitalRead(PIN_STARTSTOP);
+
+	if (isPressed && !lastStartStopWasDown)
+	{
+		isRunning = !isRunning;
+		if (isRunning)
+		{
+			LCD.setStatus("Running");
+			Timer1.restart();
+		}
+		else
+		{
+			LCD.setStatus("Stopped");
+			Timer1.stop();
+		}
+	}
+
+	lastStartStopWasDown = isPressed;
+}
+
+void checkRotaryPressed()
+{
+	bool isDown = !digitalRead(PIN_ROTARY_X);
+	if (isDown && !lastRotWasDown)
+	{
+		if (selectedChannel > 0)
+		{
+			channels[selectedChannel - 1].skipOnce = true;
+		}
+	}
+
+	lastRotWasDown = isDown;
+}
+
+void checkSelectButton()
+{
+	bool isDown = !digitalRead(PIN_SELECT_A);
+	uint8_t newSel = selectedChannel;
+	if (isDown && !lastSelectAWasDown)
+	{
+		newSel = ((newSel + 1) % (CHANNEL_COUNT + 1));
+	}
+	lastSelectAWasDown = isDown;
+	
+	isRedrawRequired = newSel == selectedChannel;
+	selectedChannel = newSel;
+}
+
+/* Event handlers */
+
+/* Is invoked if the rotary is moved. */
 void on_buttonsChanged_ISR()
 {
 	uint8_t currentState = digitalRead(PIN_ROTARY_A) * 2
@@ -94,9 +181,12 @@ void on_buttonsChanged_ISR()
 		bpm = checked_add(bpm, offset, 60, 300);
 		bpmChanged = true;
 	}
+
+	isRedrawRequired = true;
 }
 
-void onClock()
+/* Is invoked 256 times within a 1/8 beat. */
+void on_clock_ISR()
 {
 	if (!isRunning)
 		return;
@@ -121,91 +211,17 @@ void onClock()
 			channels[i].skipOnce = false;
 			trigger = false;
 		}
-
 		digitalWrite(channels[i].pin, trigger);
 	}
 
+	// Flash LED every two beats (1/4).
 	if (beat % 2 == 0 && step < 128)
 		analogWrite(PIN_LED, 255 - step * 2);
 	else
 		analogWrite(PIN_LED, 0);
 
 	step++;
-
 	if (step == 0)
 		beat++;
 }
 
-void loop()
-{
-	delay(10);
-
-	updateSelectedChannel();
-
-	checkRotaryPressed();
-
-	checkStartStop();
-
-	if (bpmChanged && isRunning)
-	{
-		bpmChanged = false;
-		Timer1.initialize(BPM_TO_TIMER_US / bpm);
-		LCD.setBpm(bpm);
-	}
-}
-
-void checkStartStop()
-{
-	bool isPressed = !digitalRead(PIN_STARTSTOP);
-
-	if (isPressed && !lastStartStopWasDown)
-	{
-		isRunning = !isRunning;
-		if (isRunning)
-			Timer1.restart();
-		else
-			Timer1.stop();
-	}
-
-	lastStartStopWasDown = isPressed;
-}
-
-void checkRotaryPressed()
-{
-	bool isDown = !digitalRead(PIN_ROTARY_X);
-	if (isDown && !lastRotWasDown)
-	{
-		if (selectedChannel > 0)
-		{
-			channels[selectedChannel - 1].skipOnce = true;
-		}
-	}
-
-	lastRotWasDown = isDown;
-}
-
-void updateSelectedChannel()
-{
-	uint8_t newChSel = 0;
-	if (!digitalRead(PIN_SELECT_A))
-	{
-		newChSel = 1;
-	}
-	selectedChannel = newChSel;
-	
-	if (selectedChannel == 0)
-		LCD.clearSecondRow();
-	else
-		LCD.drawChannelValue(selectedChannel, channels[selectedChannel-1].setValue);
-}
-
-int checked_add(int value, int8_t increment, int min, int max)
-{
-	int newValue = value + increment;
-	if (newValue > max)
-		return max;
-	else if (newValue < min)
-		return min;
-
-	return newValue;
-}

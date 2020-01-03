@@ -2,12 +2,12 @@
 #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
 
-#include "Configuration.h"
-
 class Display
 {
 public:
 	void init();
+
+	void setStatus(const char* status);
 
 	void setBpm(int bpm);
 
@@ -17,10 +17,13 @@ public:
 private:
 
 	void drawSkeleton();
-	void print_uint8(uint8_t x, uint8_t y, uint8_t value);
+	void print_uint8(uint8_t value);
 
 	LiquidCrystal_PCF8574  lcd = LiquidCrystal_PCF8574(0x27);
 	int bpm;
+
+	/* length of status line for lcd clearing */
+	uint8_t status_len = 0;
 
 };
 
