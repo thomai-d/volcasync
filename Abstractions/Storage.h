@@ -1,13 +1,24 @@
+/* 
+	EEPROM data structure encapsulation.
+
+	EEPROM layout:
+
+	ADDR		DESC
+	==================================================================
+	0			Magic byte to check if EEPROM has been initialized
+	1			BPM (high byte)
+	2			BPM (low byte)
+	8-11		Channel trigger values.
+
+*/
 #pragma once
 
 #include <EEPROM.h>
 
 #define STORAGE_MAGIC		0x30
-
 #define ADDR_MAGIC			0
 #define ADDR_BPM_H			1
 #define ADDR_BPM_L			2
-
 #define ADDR_TRIG_START		8
 
 bool storage_isInitialized()

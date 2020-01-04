@@ -2,53 +2,26 @@
 #include <LiquidCrystal_PCF8574.h>
 #include <TimerOne.h>
 #include <eeprom.h>
+#include <util/atomic.h>
 
 #include "Configuration.h"
 #include "Abstractions/Rotary.h"
 #include "Abstractions/Display.h"
 #include "Abstractions/Helpers.h"
 #include "Abstractions/Storage.h"
+#include "Abstractions/Hardware.h"
+#include "Abstractions/Channel.h"
 
-#define PIN_STARTSTOP	17			// Start/Stop-Button
-#define PIN_SELECT_A	16			// Modifier for channel A
-#define PIN_GPIO15		15			// unused
-#define PIN_GPIO14		14			// unused
-#define PIN_ROTARY_A	2			// Use interrupt pins!!
-#define PIN_ROTARY_B	3			// Use interrupt pins!!
-#define PIN_ROTARY_X	4			// Rotary button
-#define PIN_LED			11			// LED
+volatile uint8_t selectedChannel;	// current channel selection (0 = BPM, 1 = CH1, 2 = CH2, ...)
+volatile bool isRunning = false;	// current run/stop-state.
+volatile int bpm = 125;				// current BPM setting.
+volatile bool bpmChanged = true;	// indicates the BPM changed during an ISR.
+volatile uint8_t step = 0;			// current step (1/256 of an 8th beat).
+volatile uint8_t beat = 0;			// 8th beat count since start.
+#define BPM_TO_TIMER_US(ARG_BPM)	(117187/ARG_BPM)
 
-#define PIN_CH_0		5	
-#define PIN_CH_1		6
-#define PIN_CH_2		7
-#define PIN_CH_3		8
-
-// Hardware stuff.
-uint8_t rotary_state;
-volatile uint8_t selectedChannel;
-bool lastRotWasDown = false;
-
-// BL stuff.
-volatile int bpm = 125;
-volatile bool bpmChanged = true;
-
-uint8_t step = 0;
-uint8_t beat = 0; // 8th beat count
-
-bool isRunning = false;				// Start/Stop.
 bool is1stRowRedrawRequired = true;
 volatile bool is2ndRowRedrawRequired = true;
-bool lastStartStopWasDown = false;
-bool lastSelectAWasDown = false;
-
-#define BPM_TO_TIMER_US		117187  // :)
-typedef struct Channel
-{
-	uint8_t		trigger		= 127;
-	uint8_t		setValue	= 127;
-	bool		skipOnce	= false;
-	uint8_t		pin;
-};
 
 volatile Channel channels[CHANNEL_COUNT];
 
@@ -56,34 +29,12 @@ void setup()
 {
 	LCD.init();
 
-	channels[0].pin = PIN_CH_0;
-	channels[1].pin = PIN_CH_1;
-	channels[2].pin = PIN_CH_2;
-	channels[3].pin = PIN_CH_3;
-
 	initializeStorage();
-
-	for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
-	{
-		pinMode(channels[n].pin, OUTPUT);
-		channels[n].trigger = storage_getTrigger(n);
-		channels[n].setValue = channels[n].trigger;
-	}
-
-	pinMode(PIN_LED, OUTPUT);
-	analogWrite(PIN_LED, 0);
-
-	pinMode(PIN_ROTARY_A, INPUT_PULLUP);
-	pinMode(PIN_ROTARY_B, INPUT_PULLUP);
-	pinMode(PIN_ROTARY_X, INPUT_PULLUP);
-	pinMode(PIN_SELECT_A, INPUT_PULLUP);
-	pinMode(PIN_STARTSTOP, INPUT_PULLUP);
-
-	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_A), on_buttonsChanged_ISR, CHANGE);
-	attachInterrupt(digitalPinToInterrupt(PIN_ROTARY_B), on_buttonsChanged_ISR, CHANGE);
+	initializeChannels();
+	initializePins();
 
 	Timer1.stop();
-	Timer1.attachInterrupt(on_clock_ISR);
+	Timer1.attachInterrupt(onClock_ISR);
 
 	delay(2000);
 	LCD.go();
@@ -93,131 +44,131 @@ void loop()
 {
 	delay(10);
 
-	checkSelectButton();
-
-	checkRotaryPressed();
-
-	checkStartStop();
+	hardware_pollButtons();
 
 	redraw();
 
-	if (bpmChanged && isRunning)
-	{
-		bpmChanged = false;
-		Timer1.initialize(BPM_TO_TIMER_US / bpm);
-	}
+	updateTimer();
 }
 
 void redraw()
 {
 	if (is1stRowRedrawRequired)
 	{
-		if (isRunning)
-		{
-			uint8_t quartOutOfFour = (beat / 2) % 4;
-			uint8_t beatOutOfFour = (beat / 8) % 4;
-			LCD.setBeat(beatOutOfFour, quartOutOfFour);
-		}
-		else
-		{
-			LCD.setStatus("Stopped");
-
-			// Save on stop.
-			storage_setBpm(bpm);
-			for (uint8_t c = 0; c < CHANNEL_COUNT; c++)
-				storage_setChannelTrigger(c, channels[c].trigger);
-
-			beat = 0;
-			step = 0;
-		}
-
+		redraw_firstRow();
 		is1stRowRedrawRequired = false;
 	}
 
 	if (is2ndRowRedrawRequired)
 	{
-		if (selectedChannel == 0)
-			LCD.setBpm(bpm);
-		else
-			LCD.drawChannelValue(selectedChannel, channels[selectedChannel - 1].setValue);
+		redraw_secondRow();
 		is2ndRowRedrawRequired = false;
 	}
 }
 
-void checkStartStop()
+void redraw_firstRow()
 {
-	bool isPressed = !digitalRead(PIN_STARTSTOP);
-
-	if (isPressed && !lastStartStopWasDown)
+	if (isRunning)
 	{
-		isRunning = !isRunning;
-		if (isRunning)
-			Timer1.restart();
-		else
-			Timer1.stop();
-
-		is1stRowRedrawRequired = true;
-	}
-
-	lastStartStopWasDown = isPressed;
-}
-
-void checkRotaryPressed()
-{
-	bool isDown = !digitalRead(PIN_ROTARY_X);
-	if (isDown && !lastRotWasDown)
-	{
-		if (selectedChannel > 0)
-		{
-			channels[selectedChannel - 1].skipOnce = true;
-		}
-	}
-
-	lastRotWasDown = isDown;
-}
-
-void checkSelectButton()
-{
-	bool isDown = !digitalRead(PIN_SELECT_A);
-	uint8_t newSel = selectedChannel;
-	if (isDown && !lastSelectAWasDown)
-	{
-		newSel = ((newSel + 1) % (CHANNEL_COUNT + 1));
-	}
-	lastSelectAWasDown = isDown;
-	
-	is2ndRowRedrawRequired = newSel == selectedChannel;
-	selectedChannel = newSel;
-}
-
-/* Event handlers */
-
-/* Is invoked if the rotary is moved. */
-void on_buttonsChanged_ISR()
-{
-	uint8_t currentState = digitalRead(PIN_ROTARY_A) * 2
-						 + digitalRead(PIN_ROTARY_B);
-
-	rotary_state = rotary_lookup[rotary_state & 0xf][currentState];
-	int8_t offset = rotary_state == DIR_CW ? 1
-				  : rotary_state == DIR_CCW ? -1
-				  : 0;
-
-	if (selectedChannel > 0)
-	{
-		channels[selectedChannel-1].setValue = checked_add(channels[selectedChannel-1].setValue, offset * DELAY_STEPS_MOD, 5, 250);
+		uint8_t quartOutOfFour = (beat / 2) % 4;
+		uint8_t beatOutOfFour = (beat / 8) % 4;
+		LCD.setBeat(beatOutOfFour, quartOutOfFour);
 	}
 	else
 	{
-		bpm = checked_add(bpm, offset, 60, 300);
+		LCD.setStatus("Stopped");
+
+		// Save on stop.
+		storage_setBpm(bpm);
+		for (uint8_t c = 0; c < CHANNEL_COUNT; c++)
+			storage_setChannelTrigger(c, channels[c].trigger);
+
+		beat = 0;
+		step = 0;
+	}
+}
+
+void redraw_secondRow()
+{
+	if (selectedChannel == 0)
+		LCD.setBpm(bpm);
+	else
+		LCD.drawChannelValue(selectedChannel, channels[selectedChannel - 1].setValue);
+}
+
+void updateTimer()
+{
+	if (bpmChanged && isRunning)
+	{
+		int currentBpm;
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+		{
+			currentBpm = bpm;
+		}
+
+		bpmChanged = false;
+		Timer1.initialize(BPM_TO_TIMER_US(currentBpm));
+	}
+}
+
+/*********************/
+/*  EVENT HANDLERS   */
+/*********************/
+
+void onRotaryChanged_ISR(int8_t offset)
+{
+	if (selectedChannel > 0)
+	{
+		channels[selectedChannel - 1].setValue = checked_add(channels[selectedChannel - 1].setValue, offset * DELAY_STEPS_MOD, 5, 250);
+	}
+	else
+	{
+		int currentBpm;
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+		{
+			currentBpm = bpm;
+		}
+
+		currentBpm = checked_add(currentBpm, offset, 60, 300);
+		
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+		{
+			bpm = currentBpm;
+		}
+
 		bpmChanged = true;
 	}
 
 	is2ndRowRedrawRequired = true;
 }
 
-/* Is invoked 256 times within a 1/8 beat. */
-void on_clock_ISR()
+void onRotaryButtonPressed()
+{
+	if (selectedChannel > 0)
+	{
+		channels[selectedChannel - 1].skipOnce = true;
+	}
+}
+
+void onStartStopPressed()
+{
+	isRunning = !isRunning;
+	if (isRunning)
+		Timer1.restart();
+	else
+		Timer1.stop();
+
+	is1stRowRedrawRequired = true;
+}
+
+void onSelectButtonPressed()
+{
+	selectedChannel = ((selectedChannel + 1) % (CHANNEL_COUNT + 1));
+	is2ndRowRedrawRequired = true;
+}
+
+// Is invoked 256 times within a 1/8 beat.
+void onClock_ISR()
 {
 	if (!isRunning)
 		return;
@@ -259,14 +210,36 @@ void on_clock_ISR()
 	}
 }
 
+
+/*********************/
+/*  INITIALIZATION   */
+/*********************/
+
+// Ensures EEPROM is initialized.
 void initializeStorage()
 {
-	if (!storage_isInitialized())
-	{
-		for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
-			storage_setChannelTrigger(n, 127);
+	if (storage_isInitialized())
+		return;
 
-		storage_setBpm(bpm);
-		storage_init();
+	for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
+		storage_setChannelTrigger(n, 127);
+
+	storage_setBpm(bpm);
+	storage_init();
+}
+
+// Sets channel pins and reads channel values from EEPROM.
+void initializeChannels()
+{
+	channels[0].pin = PIN_CH_0;
+	channels[1].pin = PIN_CH_1;
+	channels[2].pin = PIN_CH_2;
+	channels[3].pin = PIN_CH_3;
+
+	for (uint8_t n = 0; n < CHANNEL_COUNT; n++)
+	{
+		pinMode(channels[n].pin, OUTPUT);
+		channels[n].trigger = storage_getTrigger(n);
+		channels[n].setValue = channels[n].trigger;
 	}
 }

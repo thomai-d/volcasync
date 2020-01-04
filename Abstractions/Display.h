@@ -1,4 +1,10 @@
+/* 
+	Routines for drawing stuff to the LCD.
+	======================================
+
+*/
 #pragma once
+
 #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
 

@@ -1,3 +1,7 @@
+/* 
+	Small helper methods 
+
+*/
 #pragma once
 
 /* Increments a value and constains min/max. */

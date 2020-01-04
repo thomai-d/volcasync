@@ -1,9 +1,17 @@
+/*
+	Rotary encoder debounce/decode code.
+
+	Usage:
+	========
+
+	rotary_state = rotary_lookup[rotary_state & 0xf][currentValue & 0x3];
+	if (rotary_state == DIR_CW || rotary_state == DIR_CCW) ...
+
+*/
+
 #ifndef ROTARY_H
 #define ROTARY_H
 
-// Usage:
-//	rotary_state = rotary_lookup[rotary_state & 0xf][currentValue & 0x3];
-//  if (rotary_state == DIR_CW || rotary_state == DIR_CCW) ...
 
 #define R_START 0x0
 #define R_CW_FINAL 0x1

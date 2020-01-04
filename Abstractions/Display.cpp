@@ -23,9 +23,9 @@ void Display::init()
 	lcd.begin(16, 2);
 	lcd.init();
 	lcd.setCursor(0, 0);
-	lcd.print("HALO I BIMS");
+	lcd.print(F("HALO I BIMS"));
 	lcd.setCursor(0, 1);
-	lcd.print(":-) :-) :-)");
+	lcd.print(F(":-) :-) :-)"));
 	lcd.setBacklight(1);
 }
 
@@ -86,7 +86,7 @@ void Display::drawChannelValue(uint8_t channel, int value)
 void Display::clearSecondRow()
 {
 	lcd.setCursor(0, 1);
-	lcd.print("                ");
+	lcd.print(F("                "));
 }
 
 /* Helper methods */
