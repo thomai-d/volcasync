@@ -3,3 +3,6 @@ Debug
 __vm
 *.swp
 *.ncrunchsolution.user
+/src/Sync.vcxproj.user
+/src/src.vcxproj.filters
+/src/src.vcxproj.user

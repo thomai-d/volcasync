@@ -66,7 +66,7 @@ void Display::setBpm(int bpm)
 	print_uint8(bpm);
 }
 
-void Display::drawChannelValue(uint8_t channel, int value)
+void Display::drawChannelValue(uint8_t channel, int value, char suffix)
 {
 	lcd.setCursor(COL_CH_ID, ROW_CH_VALUE);
 	lcd.print("CH");
@@ -80,6 +80,8 @@ void Display::drawChannelValue(uint8_t channel, int value)
 		lcd.print("-");
 
 	lcd.print(abs(display), 10);
+	lcd.print(' ');
+	lcd.print(suffix);
 	lcd.print("   ");
 }
 

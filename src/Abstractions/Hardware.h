@@ -22,10 +22,10 @@ extern void onSelectButtonPressed();
 #define PIN_ROTARY_A		2			// Rotary A (must support interrupt)
 #define PIN_ROTARY_B		3			// Rotary B (must support interrupt)
 #define PIN_LED				11			// LED
-#define PIN_CH_0			5			// Channel 1 sync
-#define PIN_CH_1			6			// Channel 2 sync
-#define PIN_CH_2			7			// Channel 3 sync
-#define PIN_CH_3			8			// Channel 4 sync
+#define PIN_CH_0			8			// Channel 1 sync
+#define PIN_CH_1			7			// Channel 2 sync
+#define PIN_CH_2			6			// Channel 3 sync
+#define PIN_CH_3			5			// Channel 4 sync
 
 uint8_t rotary_state;					// Last rotary state
 bool lastRotWasDown = false;			// Last rotary button state

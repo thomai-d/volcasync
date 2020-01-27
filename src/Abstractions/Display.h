@@ -19,7 +19,7 @@ public:
 
 	void setBpm(int bpm);
 
-	void drawChannelValue(uint8_t channel, int value);
+	void drawChannelValue(uint8_t channel, int value, char suffix);
 	void clearSecondRow();
 
 private:

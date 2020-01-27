@@ -8,7 +8,7 @@ typedef struct Channel
 {
 	uint8_t		trigger		= 127;			// step when the channel is triggered.
 	uint8_t		setValue	= 127;			// new trigger value (set by user).
-	bool		skipOnce	= false;		// if set, a single pulse should be skipped.
+	bool		halfStep	= false;		// if set, only every second pulse is emitted.
 	uint8_t		pin;						// channel's pin.
 };
 

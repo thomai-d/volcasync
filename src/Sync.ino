@@ -93,7 +93,10 @@ void redraw_secondRow()
 	if (selectedChannel == 0)
 		LCD.setBpm(bpm);
 	else
-		LCD.drawChannelValue(selectedChannel, channels[selectedChannel - 1].setValue);
+	{
+		bool isHalfStep = channels[selectedChannel - 1].halfStep;
+		LCD.drawChannelValue(selectedChannel, channels[selectedChannel - 1].setValue, isHalfStep ? 'H' : ' ');
+	}
 }
 
 void updateTimer()
@@ -146,7 +149,8 @@ void onRotaryButtonPressed()
 {
 	if (selectedChannel > 0)
 	{
-		channels[selectedChannel - 1].skipOnce = true;
+		channels[selectedChannel - 1].halfStep = !channels[selectedChannel - 1].halfStep;
+		is2ndRowRedrawRequired = true;
 	}
 }
 
@@ -188,11 +192,12 @@ void onClock_ISR()
 
 		// Trigger pulses.
 		bool trigger = channels[i].trigger == step;
-		if (trigger && channels[i].skipOnce)
+		bool isHalfStep = beat % 2 == 0;
+		if (trigger && channels[i].halfStep && isHalfStep)
 		{
-			channels[i].skipOnce = false;
 			trigger = false;
 		}
+
 		digitalWrite(channels[i].pin, trigger);
 	}
 
