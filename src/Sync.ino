@@ -122,7 +122,7 @@ void onRotaryChanged_ISR(int8_t offset)
 {
 	if (selectedChannel > 0)
 	{
-		channels[selectedChannel - 1].setValue = checked_add(channels[selectedChannel - 1].setValue, offset * DELAY_STEPS_MOD, 5, 250);
+		channels[selectedChannel - 1].setValue = check_increment(channels[selectedChannel - 1].setValue, offset * DELAY_STEPS_MOD, 0, 255, DELAY_STEPS_MOD, STEPS_DISPLAY_OFFSET);
 	}
 	else
 	{
@@ -132,7 +132,7 @@ void onRotaryChanged_ISR(int8_t offset)
 			currentBpm = bpm;
 		}
 
-		currentBpm = checked_add(currentBpm, offset, 60, 300);
+		currentBpm = check_increment(currentBpm, offset, 60, 300, 1, 0);
 		
 		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 		{
