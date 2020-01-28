@@ -36,8 +36,10 @@ void on_rotary_changed_ISR();
 
 void initializePins()
 {
+#ifdef LED_ENABLED
 	pinMode(PIN_LED, OUTPUT);
 	analogWrite(PIN_LED, 0);
+#endif
 
 	pinMode(PIN_ROTARY_A, INPUT_PULLUP);
 	pinMode(PIN_ROTARY_B, INPUT_PULLUP);

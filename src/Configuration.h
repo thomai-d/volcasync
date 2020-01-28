@@ -9,3 +9,5 @@
 #define STEPS_DISPLAY_OFFSET	3			// A pulse (uint8)127 is the reference sync.
 											// To display 0-255 as -127 to 128 and apply rastering the display
 											// in steps of 5, an offset is needed for rasterization.
+
+// #define LED_ENABLED			true		// If set, the LED flashes every 1/4 note at reference sync time.

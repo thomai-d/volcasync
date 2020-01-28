@@ -201,11 +201,13 @@ void onClock_ISR()
 		digitalWrite(channels[i].pin, trigger);
 	}
 
+#ifdef LED_ENABLED
 	// Flash LED every two beats (1/4).
 	if (beat % 2 == 0 && step > 128)
 		analogWrite(PIN_LED, 255 - step * 2);
 	else
 		analogWrite(PIN_LED, 0);
+#endif
 
 	step++;
 	if (step == 0)
