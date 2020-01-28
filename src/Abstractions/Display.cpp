@@ -64,6 +64,7 @@ void Display::setBpm(int bpm)
 	lcd.setCursor(0, 1);
 	lcd.print("BPM: ");
 	print_uint8(bpm);
+	lcd.print("    ");
 }
 
 void Display::drawChannelValue(uint8_t channel, int value, char suffix)
