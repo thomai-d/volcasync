@@ -1,6 +1,7 @@
 #pragma once
 
 #define CHANNEL_COUNT			4			// Number of sync channels.
+#define PULSE_LENGTH			30			// Pulse length in 256th steps of a 1/16th note.
 
 #define DELAY_APPROX_STEPS		15			// Some machines get out of sync if the sync signal changes too fast.
 											// Set this to lower values to prevent out-of-sync-issues.

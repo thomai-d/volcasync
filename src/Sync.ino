@@ -191,14 +191,22 @@ void onClock_ISR()
 		}
 
 		// Trigger pulses.
-		bool trigger = channels[i].trigger == step;
 		bool isHalfStep = beat % 2 == 0;
-		if (trigger && channels[i].halfStep && isHalfStep)
-		{
-			trigger = false;
-		}
+		bool isTrigger = channels[i].trigger == step
+			&& !(channels[i].halfStep && isHalfStep);
 
-		digitalWrite(channels[i].pin, trigger);
+		if (isTrigger)
+			channels[i].pulseStepsLeft = PULSE_LENGTH;
+
+		if (channels[i].pulseStepsLeft > 0)
+		{
+			digitalWrite(channels[i].pin, HIGH);
+			channels[i].pulseStepsLeft--;
+		}
+		else
+		{
+			digitalWrite(channels[i].pin, LOW);
+		}
 	}
 
 #ifdef LED_ENABLED
