@@ -6,29 +6,24 @@ Simple arduino based module for synthesizer/sequencer synchronization.
 
 ### Features
 
-- 4 synchronization channels (easily extendable).
+- 4 synchronization channels (easily extendable by `CHANNEL_COUNT`).
 - every channel can be delayed in 256 steps up to +/- 1/16th note (positive and negative delay possible).
+- every channel supports half-step mode (only pulses every second sync step).
 - song tempo configuration (in BPM).
 - song position display.
-
+- global start/stop.
+- settings are persisted in EEPROM.
+- changing the channel delay will slowly change the delay (immediate changes confuse some devices).
 
 ### Why?
 
 I've had a lot of problems syncing my devices. No matter which device is set to master, nothing really worked 100%.
 
-- Volcas have problems with MIDI sync
+- Volcas have huge problems with MIDI sync
 - Volcas emit a single pulse upon startup (=> device chain is out of sync)
 - Arturia Keystep stops forwarding syncs when sequencing is stopped
 - Monologue emits an additional sync when play is pressed (WTF?)
 - Sequenced synths with (relative) long attack times sound off-sync with the kick-drum. A negative sync delay would fix this issue.
-
-### Additional features?
-
-- More channels can easily be added (just add the pin numbers and set `CHANNEL_COUNT`).
-- The sync pulse can be stopped and restarted. Keeping all devices 100% in sync is easy.
-- The device settings can be stored (on sync stop).
-- Changing the channel delay will slowly change the delay (immediate changes confuse some devices).
-- Song position display (1 out of 4 bars) helps a lot when sequencing live with the keystep.
 
 ### What do I need to build this?
 
