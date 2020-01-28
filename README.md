@@ -39,13 +39,9 @@ I've had a lot of problems syncing my devices. No matter which device is set to 
 
 ### How does the sync pulse look like?
 
-The sync pulse is just a small pulse every 1/8th note.
+This is what four delayed pulses with a `PULSE_LENGTH` of 30 look like in the scope (two of them are half-step only):
 
-![Sync pulse](https://raw.githubusercontent.com/thomai-d/volcasync/master/doc/signal-equal.png)
-
-Shifting the second channel will look like this:
-
-![Sync pulse predelayed](https://raw.githubusercontent.com/thomai-d/volcasync/master/doc/signal-shiftmax.png)
+![Sync pulse](https://raw.githubusercontent.com/thomai-d/volcasync/master/doc/scope.png)
 
 ### Ok, how does it look in action?
 
